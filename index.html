@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BulSU Latin Honors Calculator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- jsPDF for PDF Export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f8f8f8;
+        margin: 0;
+        padding: 0;
+    }
+
+    h1 {
+        text-align: center;
+        margin-top: 20px;
+    }
+    p { text-align:center; }
+
+    #container {
+        width: 95%;
+        max-width: 1100px;
+        margin: 20px auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        height: 65vh;
+        overflow-y: scroll;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 0;
+    }
+
+    th {
+        background: #333;
+        color: white;
+        padding: 10px;
+    }
+
+    td {
+        padding: 8px;
+        border-bottom: 1px solid #ccc;
+    }
+
+    select, input {
+        padding: 5px;
+        font-size: 14px;
+    }
+
+    .year-section {
+        margin-top: 15px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .year-header {
+        background: #444;
+        color: white;
+        padding: 10px;
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    .year-body {
+        display: none;
+        overflow: hidden;
+        transition: 0.3s ease;
+    }
+
+    button {
+        display: inline-block;
+        margin: 10px;
+        padding: 12px 22px;
+        font-size: 18px;
+        color: white;
+        background: #4CAF50;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    #resetBtn { background:#d32f2f; }
+    #pdfBtn { background:#1976d2; }
+
+    button:hover { opacity:0.85; }
+</style>
+
+</head>
+<body>
+
+<h1>BulSU (2018-2019) Latin Honors Calculator</h1>
+<p><b>by @kuna_chc</b></p>
+
+<div id="container"></div>
+
+<div style="text-align:center;">
+    <button id="computeBtn">Compute Honors</button>
+    <button id="pdfBtn">Export PDF</button>
+    <button id="resetBtn">Reset All</button>
+</div>
+
+<script>
+// ------------------------
+// SUBJECTS GROUPED BY YEAR
+// ------------------------
+const subjectsByYear = {
+    "1st Year": {
+        "PE 10": "PATHFit 1",
+        "IT 102": "Introduction to Computing",
+        "RPH 101": "Readings in the Philippine History",
+        "IT 104": "Hardware System and Servicing",
+        "IT 103": "Computer Programming 1",
+        "STS 101": "Science, Technology and Society",
+        "AAP 101": "Art Appreciation",
+        "NSTP 10": "National Service Training Program 1",
+        "ARP 101": "Araling Pilipino",
+        "IT 107": "Discrete Structures for IT",
+        "IT 106": "Networking 1",
+        "IT 105": "Computer Programming 2",
+        "NSTP 11": "National Service Training Program 2",
+        "PE 11": "PATHFit 2",
+        "UTS 101": "Understanding the Self",
+        "PCM 101": "Purposive Communication",
+        "PAL 101": "Panitikan at Lipunan",
+        "MMW 101": "Mathematics in the Modern World"
+    },
+    "2nd Year": {
+        "IT 204": "Integrative Programming and Technologies 1",
+        "IT 205": "Human Computer Interface",
+        "IT 202": "Information Management",
+        "IT 201": "Data Structures and Algorithms",
+        "AAH 101d*": "Reading Visual Art",
+        "IT 203": "Object-Oriented Programming 1",
+        "ETH 101": "Ethics",
+        "PE 12": "PATHFit 3",
+        "IT 209": "Interactive Systems and Technologies",
+        "PE13": "PATHFit 4",
+        "IT 210": "Networking 2",
+        "IT 208": "Platform Technologies",
+        "IT 207": "Object-Oriented Programming 2",
+        "IT 206": "Advanced Database Systems",
+        "MST 101d*": "Living in the IT Era",
+        "TCW 101": "The Contemporary World"
+    },
+    "3rd Year": {
+        "FL301": "Foreign Language 1",
+        "IT 302": "Social and Professional Issues",
+        "IT 307": "Elective 2",
+        "IT 306": "Elective 1",
+        "IT 305": "Quantitative Methods",
+        "IT 304": "Web Systems and Technologies 1",
+        "IT 303": "System Analysis and Design",
+        "IT 301": "Application Development and Emerging Technologies",
+        "FL302": "Foreign Language 2",
+        "IT 312": "Elective 4",
+        "IT 311": "Elective 3",
+        "CAP 301": "Capstone Project and Research 1",
+        "IT 310": "Web Systems and Technologies 2",
+        "IT 309": "Systems Integration and Architecture 1",
+        "IT 308": "Information Assurance and Security",
+        "RLW 101": "Life and Works of Rizal"
+    },
+    "4th Year": {
+        "IT 402": "System Integration and Architecture 2",
+        "IT 401": "System Administration and Maintenance",
+        "SSP 101c": "Gender and Society",
+        "IT 403": "Elective 5",
+        "CAP 401": "Capstone Project and Research 2",
+        "IT 404": "Internship"
+    }
+};
+
+const grades = [
+    "1.00","1.25","1.50","1.75",
+    "2.00","2.25","2.50","2.75",
+    "3.00","5.00"
+];
+
+const container = document.getElementById("container");
+
+// ---------------------------
+// GENERATE COLLAPSIBLE TABLES
+// ---------------------------
+for (let year in subjectsByYear) {
+    const section = document.createElement("div");
+    section.className = "year-section";
+
+    const header = document.createElement("div");
+    header.className = "year-header";
+    header.textContent = year;
+
+    const body = document.createElement("div");
+    body.className = "year-body";
+
+    const table = document.createElement("table");
+
+    table.innerHTML = `
+        <tr>
+            <th>Subject Code</th>
+            <th>Subject Name</th>
+            <th>Grade</th>
+            <th>Units</th>
+        </tr>
+    `;
+
+    // Add rows
+    for (let code in subjectsByYear[year]) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${code}</td>
+            <td>${subjectsByYear[year][code]}</td>
+            <td>
+                <select class="grade" data-code="${code}">
+                    <option value=""></option>
+                    ${grades.map(g => `<option value="${g}">${g}</option>`).join("")}
+                </select>
+            </td>
+            <td>
+                <input type="number" class="units" data-code="${code}" value="3" min="1">
+            </td>
+        `;
+        table.appendChild(row);
+    }
+
+    body.appendChild(table);
+    section.appendChild(header);
+    section.appendChild(body);
+    container.appendChild(section);
+
+    // Collapsible toggle
+    header.addEventListener("click", () => {
+        body.style.display = body.style.display === "block" ? "none" : "block";
+    });
+}
+
+// ---------------------------
+// AUTO SAVE TO LOCAL STORAGE
+// ---------------------------
+function saveData() {
+    const data = {};
+    document.querySelectorAll(".grade").forEach(el => data[`grade_${el.dataset.code}`] = el.value);
+    document.querySelectorAll(".units").forEach(el => data[`units_${el.dataset.code}`] = el.value);
+    localStorage.setItem("bulsu_latin_honors", JSON.stringify(data));
+}
+
+function loadData() {
+    const data = JSON.parse(localStorage.getItem("bulsu_latin_honors"));
+    if (!data) return;
+
+    document.querySelectorAll(".grade").forEach(el => {
+        if (data[`grade_${el.dataset.code}`]) el.value = data[`grade_${el.dataset.code}`];
+    });
+    document.querySelectorAll(".units").forEach(el => {
+        if (data[`units_${el.dataset.code}`]) el.value = data[`units_${el.dataset.code}`];
+    });
+}
+
+document.addEventListener("change", saveData);
+loadData();
+
+// ---------------------------
+// COMPUTE HONORS
+// ---------------------------
+function compute() {
+    let totalUnits = 0;
+    let totalPoints = 0;
+    let lowest = 0;
+
+    const grades = document.querySelectorAll(".grade");
+    const units = document.querySelectorAll(".units");
+
+    for (let i = 0; i < grades.length; i++) {
+        const g = parseFloat(grades[i].value);
+        const u = parseFloat(units[i].value);
+
+        if (isNaN(g) || isNaN(u)) {
+            alert("Please complete all grades and units.");
+            return;
+        }
+
+        totalUnits += u;
+        totalPoints += g * u;
+
+        if (g > lowest) lowest = g;
+    }
+
+    const gwa = totalPoints / totalUnits;
+    let honor = "None";
+
+    if (gwa <= 1.20 && lowest <= 2.00) honor = "Summa Cum Laude";
+    else if (gwa <= 1.45 && lowest <= 2.25) honor = "Magna Cum Laude";
+    else if (gwa <= 1.75 && lowest <= 2.50) honor = "Cum Laude";
+
+    alert(
+        `Total Units: ${totalUnits}\n` +
+        `GWA: ${gwa.toFixed(4)}\n` +
+        `Lowest Grade: ${lowest}\n\n` +
+        `Latin Honor: ${honor}`
+    );
+
+    return { totalUnits, gwa, lowest, honor };
+}
+
+document.getElementById("computeBtn").onclick = compute;
+
+// ---------------------------
+// PDF EXPORT
+// ---------------------------
+// ---------------------------
+// PDF EXPORT (with summaries)
+// ---------------------------
+document.getElementById("pdfBtn").onclick = () => {
+    const result = compute();
+    if (!result) return;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF("p", "mm", "a4");
+
+    let y = 15;
+
+    // ----------------------
+    // TITLE
+    // ----------------------
+    doc.setFontSize(18);
+    doc.text("BulSU Latin Honors Summary Report", 105, y, { align: "center" });
+    y += 10;
+
+    doc.setFontSize(12);
+    doc.text("Generated using the BulSU Latin Honors Calculator (2018–2019 Curriculum)", 105, y, { align: "center" });
+    y += 10;
+
+    // ----------------------
+    // OVERALL RESULT BOX
+    // ----------------------
+    doc.setFontSize(13);
+    doc.text("Overall Computed Results", 20, y);
+    y += 6;
+
+    doc.setFontSize(11);
+    doc.rect(15, y, 180, 22);
+
+    doc.text(`Total Units: ${result.totalUnits}`, 20, y + 7);
+    doc.text(`GWA: ${result.gwa.toFixed(4)}`, 20, y + 14);
+    doc.text(`Lowest Grade: ${result.lowest}`, 100, y + 7);
+    doc.text(`Latin Honor: ${result.honor}`, 100, y + 14);
+
+    y += 30;
+
+    // ----------------------------------
+    // SUMMARY TABLE GENERATOR
+    // ----------------------------------
+function drawTable(doc, startY, title, headers, rows) {
+
+    const pageHeight = doc.internal.pageSize.height - 20; 
+    const colWidths = [40, 90, 25, 25];
+    const rowHeight = 7;
+
+    // Add title
+    doc.setFontSize(13);
+
+    // Page break for title
+    if (startY + 10 > pageHeight) {
+        doc.addPage();
+        startY = 20;
+    }
+
+    doc.text(title, 20, startY);
+    startY += 5;
+
+    // Draw header
+    if (startY + rowHeight > pageHeight) {
+        doc.addPage();
+        startY = 20;
+    }
+
+    doc.setFontSize(11);
+    doc.setFillColor(230, 230, 230);
+    doc.rect(15, startY, 180, rowHeight, "F");
+
+    let x = 15;
+    headers.forEach((h, i) => {
+        doc.text(h, x + 2, startY + 5);
+        x += colWidths[i];
+    });
+
+    startY += rowHeight;
+
+    // Draw each row safely
+    rows.forEach(r => {
+        if (startY + rowHeight > pageHeight) {
+            doc.addPage();
+            startY = 20;
+        }
+
+        let x = 15;
+        r.forEach((cell, i) => {
+            doc.text(String(cell), x + 2, startY + 5);
+            x += colWidths[i];
+        });
+
+        doc.rect(15, startY, 180, rowHeight);
+        startY += rowHeight;
+    });
+
+    return startY + 10;
+}
+
+    // ----------------------------------
+    // BUILD DATA FOR SEMESTER + YEAR
+    // ----------------------------------
+    const semData = {};    // Example: semData["1st Year"] = [...]
+    const yearGWA = {};    // Example: yearGWA["1st Year"] = {totalUnits, totalPoints}
+    
+    document.querySelectorAll("table").forEach((table, i) => {
+        const yearTitle = Object.keys(subjectsByYear)[i];
+
+        semData[yearTitle] = [];
+        yearGWA[yearTitle] = { units: 0, points: 0 };
+
+        const rows = table.querySelectorAll("tr:not(:first-child)");
+        rows.forEach(r => {
+            const code = r.children[0].textContent;
+            const name = r.children[1].textContent;
+            const grade = parseFloat(r.children[2].querySelector("select").value);
+            const units = parseFloat(r.children[3].querySelector("input").value);
+
+            semData[yearTitle].push([code, name, grade.toFixed(2), units]);
+
+            yearGWA[yearTitle].units += units;
+            yearGWA[yearTitle].points += grade * units;
+        });
+    });
+
+    // ----------------------------------
+    // PER-SEMESTER SUMMARY TABLES
+    // ----------------------------------
+    for (let year in semData) {
+        y = drawTable(doc, y, year + " Subjects", 
+            ["Code", "Subject", "Grade", "Units"], 
+            semData[year]
+        );
+
+        if (y > 250) { doc.addPage(); y = 20; }
+    }
+
+    doc.addPage();
+    y = 20;
+
+    // ----------------------------------
+    // PER-YEAR GWA SUMMARY TABLE
+    // ----------------------------------
+    doc.setFontSize(16);
+    doc.text("Per-Year GWA Summary", 105, y, { align: "center" });
+    y += 10;
+
+    let yearSummaryRows = [];
+
+    for (let year in yearGWA) {
+        const U = yearGWA[year].units;
+        const P = yearGWA[year].points;
+        const G = P / U;
+
+        yearSummaryRows.push([
+            year,
+            U,
+            (P / U).toFixed(4)
+        ]);
+    }
+
+function drawYearSummary(doc, startY, rows) {
+
+    const pageHeight = doc.internal.pageSize.height - 20; 
+    const colWidths = [80, 50, 50];
+    const rowHeight = 8;
+
+    // Add header row
+    if (startY + rowHeight > pageHeight) {
+        doc.addPage();
+        startY = 20;
+    }
+
+    doc.setFontSize(12);
+    doc.setFillColor(230, 230, 230);
+    doc.rect(20, startY, 170, rowHeight, "F");
+
+    doc.text("Year", 22, startY + 5);
+    doc.text("Total Units", 102, startY + 5);
+    doc.text("Yearly GWA", 152, startY + 5);
+
+    startY += rowHeight;
+
+    // Draw rows safely
+    rows.forEach(row => {
+        if (startY + rowHeight > pageHeight) {
+            doc.addPage();
+            startY = 20;
+        }
+
+        doc.rect(20, startY, 170, rowHeight);
+
+        doc.text(String(row[0]), 22, startY + 5);
+        doc.text(String(row[1]), 102, startY + 5);
+        doc.text(String(row[2]), 152, startY + 5);
+
+        startY += rowHeight;
+    });
+
+    return startY + 10;
+}
+
+    y = drawYearSummary(doc, y, yearSummaryRows);
+
+    // ----------------------------------
+    // SAVE PDF
+    // ----------------------------------
+    doc.save("BulSU_Latin_Honors_Summary.pdf");
+};
+
+
+// ---------------------------
+// RESET ALL
+// ---------------------------
+document.getElementById("resetBtn").onclick = () => {
+    if (!confirm("Clear all saved grades and units?")) return;
+    localStorage.removeItem("bulsu_latin_honors");
+    location.reload();
+};
+
+</script>
+
+</body>
+</html>

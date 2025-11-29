@@ -287,10 +287,19 @@ function compute() {
             return;
         }
 
-        totalUnits += u;
-        totalPoints += g * u;
+    // Excluded subjects (BulSU rule: NSTP not counted in GWA)
+    const excluded = ["NSTP 10", "NSTP 11"];
+    
+    const code = grades[i].dataset.code;
+    
+    // Skip excluded subjects
+    if (excluded.includes(code)) continue;
+    
+    totalUnits += u;
+    totalPoints += g * u;
+    
+    if (g > lowest) lowest = g;
 
-        if (g > lowest) lowest = g;
     }
 
     const gwa = totalPoints / totalUnits;
@@ -539,3 +548,4 @@ document.getElementById("resetBtn").onclick = () => {
 
 </body>
 </html>
+
